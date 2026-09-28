@@ -1,0 +1,159 @@
+/* ==========================================
+   HydroControl - estilos
+========================================== */
+:root {
+    --bg-body: #f4f6f9; --card-bg: #ffffff; --border-tech: #e2e8f0;
+    --neon-blue: #005a8d; --neon-green: #2ecc71; --neon-red: #e74c3c; --neon-gold: #f1c40f;
+    --neon-cyan: #0dcaf0; --neon-purple: #6f42c1;
+    --text-main: #2c3e50; --text-muted: #7f8c8d; --radius: 4px;
+    --gauge-bg: #e2e8f0;
+}
+
+body.theme-dark {
+    --bg-body: #0f172a; --card-bg: #1e293b; --border-tech: #334155;
+    --text-main: #f8fafc; --text-muted: #94a3b8;
+    --gauge-bg: #334155;
+}
+
+body { background-color: var(--bg-body); background-image: linear-gradient(rgba(0, 90, 141, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 90, 141, 0.05) 1px, transparent 1px); background-size: 40px 40px; font-family: 'Roboto Mono', monospace; color: var(--text-main); font-size: 0.85rem; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; transition: background-color 0.3s; margin: 0; }
+
+/* --- VISTAS --- */
+.view-section { display: none; height: 100vh; height: 100dvh; width: 100vw; flex-direction: column; animation: fadeIn 0.3s ease-out; }
+.view-active { display: flex; }
+@keyframes fadeIn { from { opacity: 0; transform: scale(0.99); } to { opacity: 1; transform: scale(1); } }
+
+/* --- LOGIN --- */
+.login-wrapper { justify-content: center; align-items: center; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); overflow-y: auto; }
+.login-box { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); padding: 32px 40px; border-radius: 8px; border-top: 4px solid var(--neon-blue); box-shadow: 0 15px 35px rgba(0,0,0,0.5); width: 100%; max-width: 420px; }
+.login-box .form-control { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: var(--neon-green); margin-bottom: 8px; }
+.login-box .form-control::placeholder { color: rgba(255,255,255,0.3); }
+.login-error { background: rgba(231,76,60,0.15); border: 1px solid var(--neon-red); color: #ff8a80; padding: 8px 10px; border-radius: var(--radius); font-size: 0.75rem; margin-bottom: 12px; text-align: left; }
+
+/* --- NAVBAR Y PANELES --- */
+.navbar-custom { background-color: var(--neon-blue); border-bottom: 4px solid var(--neon-green); box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 8px 0; padding-top: calc(8px + env(safe-area-inset-top)); margin-bottom: 15px; z-index: 100; }
+.navbar-custom .container-fluid { row-gap: 8px; }
+.brand-title { font-family: 'Orbitron', sans-serif; font-weight: 700; color: white; font-size: 1.2rem; letter-spacing: 2px; }
+.main-wrapper { flex: 1; padding-bottom: 10px; overflow-y: auto; }
+.card { border: 1px solid var(--border-tech); border-radius: var(--radius); background-color: var(--card-bg); box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px; position: relative; overflow: hidden; transition: background-color 0.3s, border-color 0.3s; color: var(--text-main); }
+.card::before { content: ''; position: absolute; top: 0; left: 0; width: 0; height: 0; border-style: solid; border-width: 10px 10px 0 0; border-color: var(--neon-green) transparent transparent transparent; }
+.card-header { background-color: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border-tech); font-family: 'Orbitron', sans-serif; font-size: 0.75rem; color: var(--text-main); font-weight: bold; letter-spacing: 1px; padding: 8px 15px; }
+.card-body { padding: 15px; }
+
+.border-glow-blue { border-top: 3px solid var(--neon-blue); }
+.border-glow-green { border-top: 3px solid var(--neon-green); }
+.border-glow-gold { border-top: 3px solid var(--neon-gold); }
+.border-glow-red { border-top: 3px solid var(--neon-red); }
+.border-glow-cyan { border-top: 3px solid var(--neon-cyan); }
+.border-glow-purple { border-top: 3px solid var(--neon-purple); }
+
+.form-control { background-color: transparent; border: 1px solid #cbd5e1; color: var(--text-main); font-family: 'Roboto Mono', monospace; border-radius: var(--radius); font-size: 0.85rem; transition: all 0.3s; }
+.form-control:focus { border-color: var(--neon-blue); box-shadow: 0 0 0 3px rgba(0, 90, 141, 0.1); outline: none; color: var(--text-main); background-color: transparent; }
+.form-control:disabled { opacity: 0.5; background-color: transparent; }
+.input-label { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px; display: block; text-transform: uppercase; font-weight: bold; }
+
+.btn { border-radius: var(--radius); font-family: 'Orbitron', sans-serif; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase; border: none; transition: all 0.2s; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: var(--neon-blue); color: white; }
+.btn-success { background: var(--neon-green); color: white; font-weight: bold; }
+.btn-danger { background: var(--neon-red); color: white; }
+.btn-warning { background: var(--neon-gold); color: white; font-weight: bold; }
+.btn-dark { background: #34495e; color: white; }
+
+.log-wrapper { background-color: #1e293b; border: 1px solid #cbd5e1; border-radius: var(--radius); padding: 2px; }
+.log-box { background-color: #1e293b; color: #ecf0f1; font-family: 'Consolas', monospace; padding: 10px; overflow-y: auto; border: none; font-size: 0.8rem; height: 180px; display: block; }
+.log-row { margin-bottom: 2px; word-break: break-word; }
+textarea.json-editor { background-color: transparent; color: var(--text-main); border: 1px solid #cbd5e1; font-size: 0.8rem; }
+.pass-container { position: relative; }
+.btn-toggle-pass { position: absolute; right: 10px; top: 50%; transform: translateY(-75%); background: transparent; border: none; cursor: pointer; z-index: 10; padding: 0; font-size: 1.1rem; }
+
+/* --- TELEMETRÍA --- */
+.telemetry-container { display: flex; height: 250px; min-height: 250px; max-height: 250px; background: transparent; border: 1px solid var(--border-tech); overflow: hidden; }
+.telemetry-col { flex: 1; overflow-y: auto; padding: 0; border-right: 1px solid var(--border-tech); font-size: 0.75rem; line-height: 1.2; color: var(--text-main); font-family: 'Roboto Mono', monospace; position: relative; }
+.telemetry-col:last-child { border-right: none; }
+.col-title { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border-tech); margin-bottom: 8px; position: sticky; top: 0; background: var(--card-bg); z-index: 10; font-weight: bold; padding: 10px 8px; }
+.telemetry-col > .log-row { padding-left: 8px; padding-right: 8px; margin-bottom: 6px; }
+.hist-row { margin-left: 8px; padding-left: 8px !important; }
+
+@keyframes parpadeo-alerta { 0% { opacity: 1; box-shadow: 0 0 10px var(--neon-red); } 50% { opacity: 0.5; box-shadow: 0 0 2px var(--neon-red); } 100% { opacity: 1; box-shadow: 0 0 10px var(--neon-red); } }
+.system-failure { background-color: var(--neon-red) !important; color: white !important; border: 1px solid white !important; animation: parpadeo-alerta 1s infinite; }
+
+/* --- AJUSTES --- */
+.modal-content { background-color: var(--card-bg); color: var(--text-main); border: 2px solid var(--neon-blue); border-radius: 4px; }
+.modal-header { background: var(--neon-blue); color: white; border-bottom: none; }
+.settings-sidebar { border-right: 1px solid var(--border-tech); padding: 15px 0; min-height: 260px; flex-shrink: 0; }
+.nav-pills .nav-link { color: var(--text-muted); font-family: 'Orbitron'; font-size: 0.8rem; border-radius: 0; white-space: nowrap; transition: all 0.2s; }
+.nav-pills .nav-link.active { background: rgba(0, 90, 141, 0.1) !important; color: var(--neon-blue) !important; border-left: 3px solid var(--neon-blue); font-weight: bold; }
+.set-title { color: var(--neon-blue); border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+
+/* --- VELOCÍMETRO --- */
+.speed-circle { width: 130px; height: 130px; border-radius: 50%; background: conic-gradient(var(--neon-blue) 0%, var(--gauge-bg) 0%); margin: 0 auto; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 15px rgba(0, 90, 141, 0.1); }
+.speed-inner { width: 110px; height: 110px; background: var(--card-bg); border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: background-color 0.3s; }
+.speed-val { font-size: 1.8rem; font-weight: 900; color: var(--text-main); font-family: 'Orbitron', sans-serif; line-height: 1; }
+.speed-unit { font-size: 0.65rem; color: var(--text-muted); font-weight: bold; letter-spacing: 1px; }
+
+/* --- SENSOR / NIVEL --- */
+.sensor-val { font-size: 2.8rem; font-weight: 900; font-family: 'Orbitron', sans-serif; text-align: center; margin: 10px 0; text-shadow: 0 0 15px currentColor; }
+.sensor-unit { font-size: 0.9rem; font-family: 'Roboto Mono', monospace; color: var(--text-muted); opacity: 0.85; }
+.tank-wrap { padding-right: 46px; }
+.tank { position: relative; width: 170px; height: 320px; border: 3px solid var(--neon-blue); border-radius: 12px 12px 26px 26px; overflow: visible; background: var(--card-bg); }
+.tank-fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0%; background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%); border-radius: 0 0 22px 22px; transition: height 0.8s ease; }
+.tank-fill.no-data { background: var(--gauge-bg); }
+.tank-mark { position: absolute; left: -6px; right: -46px; height: 0; border-top: 2px dashed var(--neon-gold); z-index: 3; }
+.tank-mark span { position: absolute; right: 0; top: -9px; font-size: 0.6rem; font-weight: bold; color: var(--neon-gold); background: var(--card-bg); padding: 0 3px; }
+.tank-nosensor { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'Orbitron'; font-size: 0.8rem; font-weight: bold; color: var(--neon-red); background: rgba(0,0,0,0.08); z-index: 4; }
+
+/* --- COMPONENTES PROPIOS --- */
+.mode-row { padding: 6px 0 6px 2.6em; border-bottom: 1px dashed var(--border-tech); margin-bottom: 6px; }
+.form-switch .form-check-input { cursor: pointer; }
+.form-switch .form-check-input:disabled { cursor: not-allowed; }
+.status-pill { display: inline-block; min-width: 82px; padding: 5px 8px; border-radius: 20px; font-size: 0.68rem; font-weight: bold; font-family: 'Orbitron', sans-serif; letter-spacing: 0.5px; color: white; }
+.tone-ok { background: var(--neon-green); }
+.tone-bad { background: var(--neon-red); }
+.tone-warn { background: #e67e22; }
+.tone-info { background: var(--neon-blue); }
+.tone-off { background: #94a3b8; }
+.hint-box { font-size: 0.72rem; color: var(--text-muted); background: rgba(0,90,141,0.06); border: 1px dashed var(--neon-blue); border-radius: var(--radius); padding: 8px 10px; }
+.alert-box { font-size: 0.72rem; color: #92400e; background: rgba(241,196,15,0.18); border: 1px solid var(--neon-gold); border-radius: var(--radius); padding: 8px 10px; margin-top: 8px; }
+.horario-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; margin-bottom: 6px; border: 1px solid var(--border-tech); border-left: 3px solid var(--neon-gold); border-radius: var(--radius); font-size: 0.75rem; }
+.horario-vacio { color: var(--text-muted); font-size: 0.75rem; text-align: center; padding: 6px 0; }
+.dia-chip { position: relative; }
+.dia-chip input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.dia-chip span { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--border-tech); border-radius: 50%; font-weight: bold; font-size: 0.75rem; color: var(--text-muted); }
+.dia-chip input:checked + span { background: var(--neon-gold); border-color: var(--neon-gold); color: white; }
+.dia-chip input:disabled { cursor: not-allowed; }
+
+/* --- MODO OSCURO --- */
+body.theme-dark .login-box { background: var(--card-bg); border-color: var(--neon-blue); }
+body.theme-dark .form-control { border-color: #475569; color: #00ff9d; }
+body.theme-dark .card-header { background-color: rgba(0,0,0,0.3); border-bottom-color: #334155; }
+body.theme-dark .speed-circle { box-shadow: 0 0 15px rgba(56, 189, 248, 0.2); }
+body.theme-dark .alert-box { color: #fde68a; }
+body.theme-dark .set-title { border-bottom-color: #334155; }
+
+/* --- CELULAR --- */
+@media (max-width: 576px) {
+    .container-fluid.px-5 { padding-left: 14px !important; padding-right: 14px !important; }
+    .brand-title { font-size: 1rem; letter-spacing: 1px; }
+    .navbar-subtitle { display: none; }   /* "| CONTROL" / "| NIVEL DEL TANQUE": sobra en una pantalla angosta */
+    .navbar-custom .container-fluid { flex-wrap: wrap; }
+    .navbar-custom .d-flex.gap-3:last-child { gap: 6px !important; width: 100%; justify-content: flex-end; }
+    .navbar-custom .btn-sm { font-size: 0.7rem; padding: 4px 8px; }
+    .badge-sys { font-size: 0.6rem !important; padding: 6px 8px !important; }
+
+    .card-body { padding: 12px; }
+    .telemetry-container { height: 200px; min-height: 200px; max-height: 200px; }
+    .log-box { height: 150px; }
+
+    /* el panel de ajustes pasa de columna lateral a pestañas arriba, con scroll horizontal si no caben */
+    .settings-sidebar { border-right: none; border-bottom: 1px solid var(--border-tech); padding: 8px; min-height: 0; overflow-x: auto; }
+    .settings-sidebar .nav-pills { flex-wrap: nowrap; }
+    .nav-pills .nav-link.active { border-left: none; border-bottom: 3px solid var(--neon-blue); }
+    .modal-dialog { margin: 0.5rem; }
+
+    .tank-wrap { padding-right: 40px; }
+    .tank { width: 140px; height: 260px; }
+}
+
+/* el área segura de abajo (barra de gestos) solo aplica a la última fila visible de cada vista */
+#view-main .row.g-4:last-child, #view-level .main-wrapper { padding-bottom: env(safe-area-inset-bottom); }
+.login-wrapper { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }

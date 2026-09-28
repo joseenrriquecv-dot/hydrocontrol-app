@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data:; worker-src 'self' blob:; connect-src ws: wss:; manifest-src 'self';">
+    <title>HydroControl</title>
+    <meta name="description" content="Control de la bomba de agua por MQTT: nivel, válvula, velocidad y horarios desde el celular.">
+    <meta name="theme-color" content="#005A8D" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/icon-192.png">
+    <!-- iOS no lee manifest.webmanifest para el icono ni el modo pantalla completa: hace falta esto además -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="HydroControl">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto+Mono:wght@400;700&display=swap">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="view-login" class="view-section view-active login-wrapper">
+    <div class="login-box text-center">
+        <h3 class="brand-title" style="color: white; margin-bottom: 5px;">HYDRO<span style="color:var(--neon-green)">CONTROL</span></h3>
+        <p style="color: var(--neon-blue); font-family: 'Orbitron'; font-size: 0.7rem; letter-spacing: 2px; margin-bottom: 20px;">GATEWAY DE LA BOMBA</p>
+
+        <div class="mb-2 text-start">
+            <label class="input-label text-white" for="host">Host MQTT</label>
+            <input type="text" id="host" class="form-control" placeholder="xxxxxxxx.s1.eu.hivemq.cloud" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="row g-2 mb-2 text-start">
+            <div class="col-5">
+                <label class="input-label text-white" for="port">Puerto WS</label>
+                <input type="number" id="port" class="form-control" value="8884">
+            </div>
+            <div class="col-7">
+                <label class="input-label text-white" for="path">Path</label>
+                <input type="text" id="path" class="form-control" value="/mqtt">
+            </div>
+        </div>
+        <div class="form-check text-start mb-3">
+            <input class="form-check-input" type="checkbox" id="tls" checked>
+            <label class="form-check-label text-white" for="tls" style="font-size:0.75rem;">Conexión segura (TLS / wss)</label>
+        </div>
+        <div class="mb-3 text-start">
+            <label class="input-label text-white" for="user">Credenciales</label>
+            <input type="text" id="user" class="form-control mb-1" placeholder="Usuario" autocomplete="off">
+            <div class="pass-container">
+                <input type="password" id="pass" class="form-control" placeholder="Contraseña" autocomplete="off">
+                <button type="button" class="btn-toggle-pass" id="btnTogglePass" style="color: white;" aria-label="Mostrar contraseña">
+                    <i class="bi bi-eye" id="iconPass"></i>
+                </button>
+            </div>
+        </div>
+        <div class="mb-2 text-start">
+            <label class="input-label text-white" for="topicBase">Tema base</label>
+            <input type="text" id="topicBase" class="form-control" value="bomba" autocomplete="off">
+        </div>
+        <div class="form-check text-start mb-3">
+            <input class="form-check-input" type="checkbox" id="remember" checked>
+            <label class="form-check-label text-white" for="remember" style="font-size:0.75rem;">Recordar contraseña (cifrada en este equipo)</label>
+        </div>
+
+        <div id="loginError" class="login-error" hidden></div>
+
+        <button id="btnConnect" class="btn btn-primary w-100 py-2">
+            <i class="bi bi-link-45deg"></i> INICIAR ENLACE
+        </button>
+    </div>
+</div>
+
+<!-- ============ CONTROL ============ -->
+<div id="view-main" class="view-section">
+    <nav class="navbar-custom sticky-top">
+        <div class="container-fluid px-5 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <i class="bi bi-droplet-fill" style="font-size:1.8rem; color:white;"></i>
+                <span class="brand-title">HYDRO<span style="color:var(--neon-green)">CONTROL</span> <span class="navbar-subtitle" style="font-size:0.8rem; opacity:0.8; font-family:'Roboto Mono'; color:white;">| CONTROL</span></span>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-info btn-sm text-dark fw-bold" data-view="view-level">
+                    <i class="bi bi-moisture"></i> VER NIVEL
+                </button>
+                <span class="badge-sys badge bg-dark border border-secondary text-secondary p-2 px-3 rounded-0" style="font-family:'Orbitron'">SIN CONEXIÓN AL BROKER</span>
+                <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#settingsModal">
+                    <i class="bi bi-gear-fill"></i> AJUSTES
+                </button>
+                <button id="btnLogout" class="btn btn-danger btn-sm">
+                    <i class="bi bi-power"></i> DESCONECTAR
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-wrapper container-fluid px-5">
+        <div class="row g-4">
+
+            <!-- Columna 1: modos + velocidad -->
+            <div class="col-lg-3 col-md-12">
+                <div class="card border-glow-purple">
+                    <div class="card-header" style="color: var(--neon-purple);"><i class="bi bi-diagram-3"></i> Modos de control</div>
+                    <div class="card-body">
+                        <div class="form-check form-switch mode-row">
+                            <input class="form-check-input mode-sw ctrl" type="checkbox" id="swManual" data-bucle="manual">
+                            <label class="form-check-label" for="swManual"><b>Manual</b><br><small class="text-muted">Tú mandas; anula los otros modos</small></label>
+                        </div>
+                        <div class="form-check form-switch mode-row">
+                            <input class="form-check-input mode-sw ctrl" type="checkbox" id="swAutonivel" data-bucle="autonivel">
+                            <label class="form-check-label" for="swAutonivel"><b>Auto-nivel</b><br><small class="text-muted">Llena entre el mínimo y el máximo</small></label>
+                        </div>
+                        <div class="form-check form-switch mode-row mb-0">
+                            <input class="form-check-input mode-sw ctrl" type="checkbox" id="swPrograma" data-bucle="programa">
+                            <label class="form-check-label" for="swPrograma"><b>Programa</b><br><small class="text-muted">Sigue los horarios de abajo</small></label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border-glow-blue mb-0">
+                    <div class="card-header" style="color: var(--neon-blue);"><i class="bi bi-speedometer"></i> Velocidad de la bomba</div>
+                    <div class="card-body text-center pt-3 pb-3">
+                        <div class="speed-circle mb-4" id="speedGauge">
+                            <div class="speed-inner">
+                                <span id="lblSpeedGauge" class="speed-val">0</span>
+                                <span class="speed-unit">RPM</span>
+                            </div>
+                        </div>
+                        <input type="range" class="form-range ctrl" id="speedSlider" min="0" max="3000" step="50" value="800">
+                        <div class="d-flex justify-content-between text-muted mt-1" style="font-size: 0.6rem; font-weight: bold;">
+                            <span>0</span><span>1500</span><span>3000 MAX</span>
+                        </div>
+                        <small class="text-muted d-block mt-2" style="font-size:0.65rem;">Con la bomba en marcha (modo manual) el cambio se aplica al soltar.</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna 2: comandos + horarios -->
+            <div class="col-lg-4 col-md-6">
+                <div class="card border-glow-green">
+                    <div class="card-header" style="color:var(--neon-green)"><i class="bi bi-sliders"></i> Comandos</div>
+                    <div class="card-body">
+                        <div class="row g-2 mb-3 text-center">
+                            <div class="col-4"><div class="input-label">Bomba</div><span id="pillBomba" class="status-pill tone-off">--</span></div>
+                            <div class="col-4"><div class="input-label">Válvula</div><span id="pillValvula" class="status-pill tone-off">--</span></div>
+                            <div class="col-4"><div class="input-label">Sensor</div><span id="pillSensor" class="status-pill tone-off">--</span></div>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-6"><button id="btnOn" class="btn btn-success w-100 py-3 needs-manual"><i class="bi bi-lightning-fill"></i> ENCENDER</button></div>
+                            <div class="col-6"><button id="btnOff" class="btn btn-danger w-100 py-3 needs-manual"><i class="bi bi-power"></i> APAGAR</button></div>
+                            <div class="col-6"><button id="btnValveOpen" class="btn btn-primary w-100 needs-manual"><i class="bi bi-unlock"></i> ABRIR VÁLVULA</button></div>
+                            <div class="col-6"><button id="btnValveClose" class="btn btn-dark w-100 needs-manual"><i class="bi bi-lock"></i> CERRAR VÁLVULA</button></div>
+                        </div>
+                        <div id="hintManual" class="hint-box"><i class="bi bi-info-circle"></i> Activa el modo <b>Manual</b> para usar estos botones.</div>
+                        <div id="alertSensor" class="alert-box" hidden><i class="bi bi-exclamation-triangle-fill"></i> El sensor de nivel no tiene lectura. En modos automáticos la Pi apaga la bomba a los 10 s.</div>
+                    </div>
+                </div>
+
+                <div class="card border-glow-gold mb-0">
+                    <div class="card-header" style="color: var(--neon-gold);"><i class="bi bi-clock-history"></i> Horarios</div>
+                    <div class="card-body">
+                        <div id="listHorarios" class="mb-3"></div>
+                        <div style="border-top: 1px solid var(--border-tech); padding-top: 12px;">
+                            <label class="input-label">Días</label>
+                            <div id="diasBox" class="d-flex gap-2 mb-2"></div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-4"><label class="input-label" for="hIni">Inicio</label><input type="time" id="hIni" class="form-control ctrl" value="07:00"></div>
+                                <div class="col-4"><label class="input-label" for="hFin">Fin</label><input type="time" id="hFin" class="form-control ctrl" value="18:00"></div>
+                                <div class="col-4"><label class="input-label" for="hVel">RPM</label><input type="number" id="hVel" class="form-control ctrl" min="0" max="3000" step="50" value="800"></div>
+                            </div>
+                            <button id="btnAddHorario" class="btn btn-warning w-100 btn-sm ctrl"><i class="bi bi-plus-circle"></i> AGREGAR HORARIO</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna 3: configuración + registros -->
+            <div class="col-lg-5 col-md-6 d-flex flex-column">
+                <div class="card border-glow-cyan">
+                    <div class="card-header" style="color:var(--neon-cyan);"><i class="bi bi-gear-wide-connected"></i> Auto-nivel y calibración</div>
+                    <div class="card-body">
+                        <div class="row g-2 mb-2">
+                            <div class="col-4"><label class="input-label" for="cfgMin">Arranca ≤ %</label><input type="number" id="cfgMin" class="form-control ctrl" min="0" max="99"></div>
+                            <div class="col-4"><label class="input-label" for="cfgMax">Para ≥ %</label><input type="number" id="cfgMax" class="form-control ctrl" min="1" max="100"></div>
+                            <div class="col-4"><label class="input-label" for="cfgVel">RPM</label><input type="number" id="cfgVel" class="form-control ctrl" min="0" max="3000" step="50"></div>
+                        </div>
+                        <button id="btnSaveAuto" class="btn btn-primary btn-sm w-100 mb-3 ctrl">GUARDAR AUTO-NIVEL</button>
+                        <div class="row g-2 mb-2">
+                            <div class="col-6"><label class="input-label" for="cfgVacio">Tanque vacío (mm)</label><input type="number" id="cfgVacio" class="form-control ctrl" min="1"></div>
+                            <div class="col-6"><label class="input-label" for="cfgLleno">Tanque lleno (mm)</label><input type="number" id="cfgLleno" class="form-control ctrl" min="0"></div>
+                        </div>
+                        <button id="btnSaveCal" class="btn btn-dark btn-sm w-100 ctrl">GUARDAR CALIBRACIÓN</button>
+                    </div>
+                </div>
+
+                <div class="card border-glow-purple">
+                    <div class="card-header d-flex justify-content-between align-items-center" style="color:var(--neon-purple);">
+                        <small><i class="bi bi-terminal"></i> REGISTRO DEL SISTEMA</small>
+                        <button id="btnClearLog" class="btn btn-outline-secondary btn-sm py-0" style="font-size:0.6em; border-color:var(--border-tech);">CLR</button>
+                    </div>
+                    <div class="log-wrapper mx-3 mb-3">
+                        <div id="logControl" class="log-box"><div class="log-placeholder text-muted text-center mt-5" style="opacity:0.3;">&gt; ESPERANDO CONEXIÓN..._</div></div>
+                    </div>
+                </div>
+
+                <div class="card border-glow-red mb-0 flex-grow-1">
+                    <div class="card-header" style="color: var(--neon-red);"><small><i class="bi bi-heart-pulse"></i> TELEMETRÍA</small></div>
+                    <div class="telemetry-container">
+                        <div class="telemetry-col" id="colStates"><div class="col-title">Monitoreo constante</div></div>
+                        <div class="telemetry-col" id="colHist"><div class="col-title">Historial (Pi)</div></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ============ NIVEL ============ -->
+<div id="view-level" class="view-section">
+    <nav class="navbar-custom sticky-top" style="background-color: var(--text-main); border-bottom-color: var(--neon-cyan);">
+        <div class="container-fluid px-5 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <i class="bi bi-droplet-fill" style="font-size:1.8rem; color:white;"></i>
+                <span class="brand-title">HYDRO<span style="color:var(--neon-cyan)">LEVEL</span> <span class="navbar-subtitle" style="font-size:0.8rem; opacity:0.8; font-family:'Roboto Mono'; color:white;">| NIVEL DEL TANQUE</span></span>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-outline-light btn-sm fw-bold" data-view="view-main"><i class="bi bi-sliders"></i> VOLVER A CONTROL</button>
+                <span class="badge-sys badge bg-dark border border-secondary text-secondary p-2 px-3 rounded-0" style="font-family:'Orbitron'">SIN CONEXIÓN AL BROKER</span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-wrapper container-fluid px-5 pt-2">
+        <div class="row g-4 justify-content-center">
+            <div class="col-md-5 col-lg-4">
+                <div class="card border-glow-cyan text-center h-100">
+                    <div class="card-header" style="color:var(--neon-cyan);"><i class="bi bi-moisture"></i> Tanque</div>
+                    <div class="card-body d-flex justify-content-center py-4">
+                        <div class="tank-wrap">
+                            <div class="tank" id="tank">
+                                <div class="tank-fill" id="tankFill"></div>
+                                <div class="tank-mark" id="markMax"><span>MÁX</span></div>
+                                <div class="tank-mark" id="markMin"><span>MÍN</span></div>
+                                <div class="tank-nosensor" id="tankNoSensor" hidden>SIN LECTURA</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-7 col-lg-5">
+                <div class="row g-4">
+                    <div class="col-12">
+                        <div class="card border-glow-purple text-center">
+                            <div class="card-header" style="color:var(--neon-purple);"><i class="bi bi-soundwave"></i> Nivel (ultrasónico)</div>
+                            <div class="card-body">
+                                <div class="sensor-val" style="color:var(--neon-purple); font-size:4rem;"><span id="lvlPct">--</span><span style="font-size:1.6rem;">%</span></div>
+                                <div class="sensor-unit"><span id="lvlMm">--</span> mm medidos por el sensor</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="card border-glow-green text-center h-100">
+                            <div class="card-header" style="color:var(--neon-green);">Bomba</div>
+                            <div class="card-body"><div class="sensor-val" style="font-size:1.6rem;" id="lvlBomba">--</div><div class="sensor-unit" id="lvlRpm">&nbsp;</div></div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="card border-glow-blue text-center h-100">
+                            <div class="card-header" style="color:var(--neon-blue);">Válvula</div>
+                            <div class="card-body"><div class="sensor-val" style="font-size:1.6rem;" id="lvlValvula">--</div><div class="sensor-unit">&nbsp;</div></div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="card border-glow-gold text-center mb-0">
+                            <div class="card-header" style="color:var(--neon-gold);">Calibración y umbrales</div>
+                            <div class="card-body sensor-unit" id="lvlConfig">--</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============ AJUSTES ============ -->
+<div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-sliders"></i> AJUSTES DEL PANEL</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0 d-flex flex-column flex-sm-row">
+                <div class="settings-sidebar">
+                    <div class="nav flex-row flex-sm-column nav-pills p-2" role="tablist">
+                        <button class="nav-link active text-start" data-bs-toggle="pill" data-bs-target="#tab-ux"><i class="bi bi-palette me-2"></i> Visual</button>
+                        <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-logic"><i class="bi bi-shield-lock me-2"></i> Seguridad</button>
+                        <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-analysis"><i class="bi bi-graph-up me-2"></i> Exportar</button>
+                        <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-adv"><i class="bi bi-code-square me-2"></i> Avanzado</button>
+                    </div>
+                </div>
+                <div class="tab-content flex-grow-1 p-4">
+                    <div class="tab-pane fade show active" id="tab-ux">
+                        <h6 class="set-title">INTERFAZ DE USUARIO</h6>
+                        <div class="form-check form-switch mb-4">
+                            <input class="form-check-input" type="checkbox" id="cfgDarkMode">
+                            <label class="form-check-label" for="cfgDarkMode">Activar modo oscuro</label>
+                        </div>
+                        <div class="mb-3">
+                            <label class="input-label" for="cfgZoom" style="color:var(--text-main);">Zoom de pantalla</label>
+                            <input type="range" class="form-range" id="cfgZoom" min="80" max="150" step="10" value="100">
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="tab-logic">
+                        <h6 class="set-title">PROTECCIÓN</h6>
+                        <div class="form-check form-switch mb-4 p-3 rounded" style="background: rgba(255,0,85,0.05); border: 1px dashed var(--neon-red);">
+                            <input class="form-check-input" type="checkbox" id="cfgReadOnly">
+                            <label class="form-check-label text-danger fw-bold" for="cfgReadOnly">Modo seguro (bloquear todos los controles)</label>
+                        </div>
+                        <h6 class="set-title mt-4">CREDENCIALES</h6>
+                        <button id="btnForget" class="btn btn-outline-danger btn-sm">OLVIDAR CONTRASEÑA GUARDADA</button>
+                    </div>
+                    <div class="tab-pane fade" id="tab-analysis">
+                        <h6 class="set-title">DESCARGAR DATOS</h6>
+                        <p class="text-muted" style="font-size:0.8rem;">Descarga un archivo de texto con el registro del sistema, la telemetría y el historial de la Pi.</p>
+                        <button id="btnExport" class="btn btn-success"><i class="bi bi-download"></i> DESCARGAR REGISTRO</button>
+                    </div>
+                    <div class="tab-pane fade" id="tab-adv">
+                        <h6 class="set-title">INYECCIÓN MANUAL</h6>
+                        <p class="text-muted" style="font-size:0.75rem;">Publica un mensaje a mano. Solo se permiten temas bajo el tema base (<b id="advBase">bomba</b>/...).</p>
+                        <label class="input-label" for="manualTopic">Tema</label>
+                        <input type="text" id="manualTopic" class="form-control mb-2 ctrl" style="font-size:0.75rem;" value="bomba/cmd/modo">
+                        <label class="input-label" for="manualPayload">Payload</label>
+                        <textarea id="manualPayload" class="form-control json-editor mb-2 ctrl" rows="3">{"bucle": "manual", "activo": true}</textarea>
+                        <button id="btnInject" class="btn btn-dark btn-sm ctrl"><i class="bi bi-send"></i> INYECTAR</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.16.0/dist/mqtt.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
