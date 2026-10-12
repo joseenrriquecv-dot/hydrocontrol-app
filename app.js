@@ -3,7 +3,8 @@
    HydroControl - lógica del panel (MQTT)
    Contrato con la Pi (pi/main.py), tema base configurable (por defecto "bomba"):
      Pi -> app : estado, config, horarios, historial (retained), disponibilidad
-     app -> Pi : cmd/modo, cmd/bomba, cmd/valvula, cmd/calibracion, cmd/autonivel,
+                 lora (solo con enlace LoRa: calidad del enlace, cada 1 s)
+     app -> Pi : cmd/modo, cmd/bomba, cmd/valvula, cmd/calibracion, cmd/autonivel, cmd/lora,
                  cmd/horario/guardar, cmd/horario/eliminar   (nunca retained)
 ========================================== */
 
@@ -64,6 +65,7 @@ function olvidarContraseña() {
 function switchView(id) {
   document.querySelectorAll('.view-section').forEach((s) => s.classList.remove('view-active'));
   $(id).classList.add('view-active');
+  if (id === 'view-lora') renderLora();   // el canvas solo tiene tamaño cuando la vista está visible
 }
 
 /* ---------- registros ---------- */
@@ -170,6 +172,7 @@ function renderBadges() {
     if (!brokerUp) { cls = 'bg-dark border border-secondary text-secondary'; txt = 'SIN CONEXIÓN AL BROKER'; }
     else if (piOnline === null && !estado) { cls = 'bg-dark border border-secondary text-secondary'; txt = 'ESPERANDO DATOS...'; }
     else if (!piOk()) { cls = 'system-failure'; txt = '⚠ BOMBA SIN CONEXIÓN'; }
+    else if (modoLora() && loraFresco() && !(lora.pasarela_ok && lora.enlace_ok)) { cls = 'bg-warning text-dark'; txt = 'ENLACE LoRa CAÍDO'; }
     else if (!estado.sensor_ok) { cls = 'bg-warning text-dark'; txt = 'SENSOR SIN LECTURA'; }
     else { cls = 'bg-success border border-success text-white'; txt = 'SYSTEM ONLINE'; }
     b.className = `badge-sys badge ${cls} p-2 px-3 rounded-0`;
@@ -226,6 +229,8 @@ function renderConfig() {
   $('markMin').style.bottom = `${a.min_pct}%`;
   $('markMax').style.bottom = `${a.max_pct}%`;
   $('lvlConfig').textContent = `Vacío ${c.vacio_mm} mm · Lleno ${c.lleno_mm} mm · Arranca ≤ ${a.min_pct}% · Para ≥ ${a.max_pct}% · ${a.vel} RPM`;
+  if (config.lora) { idle('loraSf', config.lora.sf); idle('loraPot', config.lora.potencia); }
+  renderLora();
 }
 
 function renderHorarios() {
@@ -242,7 +247,178 @@ function renderHorarios() {
   aplicarControles();
 }
 
-function renderTodo() { renderBadges(); renderValores(); aplicarControles(); }
+/* ---------- enlace LoRa ---------- */
+// Sensibilidad típica del SX1276 a 125 kHz y SNR mínimo que aún se demodula, por SF (hoja de datos de Semtech)
+const SENSIBILIDAD = { 7: -123, 8: -126, 9: -129, 10: -132, 11: -134.5, 12: -137 };
+const SNR_MIN = { 7: -7.5, 8: -10, 9: -12.5, 10: -15, 11: -17.5, 12: -20 };
+const LORA_GRAFICA_MS = 5 * 60 * 1000;   // la gráfica muestra los últimos 5 minutos
+const LORA_HISTORIAL_MAX = 3600;         // mediciones guardadas para el CSV (1 h a una por segundo)
+let lora = null, prevLora = null, lastLoraAt = 0;
+const loraHist = [];
+
+function modoLora() { return config?.lora?.enlace === 'lora'; }
+function loraFresco() { return !!lora && (Date.now() - lastLoraAt) < ESTADO_CADUCA_MS; }
+
+// Margen = cuántos dB está la señal más débil (subida o bajada) por encima de la sensibilidad del receptor
+function calidadEnlace(l) {
+  if (!l || !l.pasarela_ok || !l.enlace_ok) return { txt: 'SIN ENLACE', tono: 'bad', margen: null };
+  const margen = Math.min(l.rssi_subida, l.rssi_bajada) - (SENSIBILIDAD[l.sf] ?? -123);
+  if (margen >= 20) return { txt: 'EXCELENTE', tono: 'ok', margen };
+  if (margen >= 10) return { txt: 'BUENA', tono: 'info', margen };
+  if (margen >= 0) return { txt: 'DÉBIL', tono: 'warn', margen };
+  return { txt: 'CRÍTICA', tono: 'bad', margen };
+}
+
+function barraRssi(id, rssi) {
+  const b = $(id);
+  const pct = rssi == null ? 0 : Math.max(0, Math.min(100, rssi + 140));   // -140 dBm = 0 %, -40 dBm = 100 %
+  b.style.width = `${pct}%`;
+  b.style.backgroundColor = pct > 50 ? 'var(--neon-green)' : pct > 25 ? 'var(--neon-gold)' : 'var(--neon-red)';
+}
+
+function onLora(l) {
+  prevLora = lora;
+  lora = l;
+  lastLoraAt = Date.now();
+  const p = prevLora;
+  if (p) {
+    if (p.pasarela_ok !== l.pasarela_ok) logControl(l.pasarela_ok ? '> [LoRa] La pasarela volvió a responder' : '> [LoRa] La PASARELA NO RESPONDE por Modbus', l.pasarela_ok ? '#86efac' : 'var(--neon-red)');
+    else if (p.enlace_ok !== l.enlace_ok) logControl(l.enlace_ok ? '> [LoRa] Enlace de radio recuperado' : '> [LoRa] ENLACE DE RADIO PERDIDO con el nodo remoto', l.enlace_ok ? '#86efac' : 'var(--neon-red)');
+    if (!p.failsafe && l.failsafe) logControl('> [LoRa] El nodo remoto apagó la bomba por falta de órdenes (failsafe)', 'var(--neon-red)');
+    if (p.sf && l.sf && p.sf !== l.sf) logControl(`> [LoRa] El enlace pasó a SF${l.sf}`, '#7dd3fc');
+  }
+  const ok = l.pasarela_ok && l.enlace_ok;
+  loraHist.push({
+    t: lastLoraAt, etiqueta: $('loraEtiqueta').value.trim(), ok, sf: l.sf, potencia: l.potencia_dbm,
+    rssiSub: ok ? l.rssi_subida : null, snrSub: ok ? l.snr_subida : null,
+    rssiBaj: ok ? l.rssi_bajada : null, snrBaj: ok ? l.snr_bajada : null,
+    rtt: ok ? l.rtt_ms : null, perdida: l.perdida_pct, enviados: l.enviados, recibidos: l.recibidos,
+  });
+  if (loraHist.length > LORA_HISTORIAL_MAX) loraHist.shift();
+  renderLora();
+}
+
+function renderLora() {
+  $('btnNavLora').hidden = !modoLora();
+  $('loraCable').hidden = !config || modoLora();
+  const l = piOk() && loraFresco() ? lora : null;
+  const ok = !!(l && l.pasarela_ok && l.enlace_ok);
+  const txt = (id, v) => { $(id).textContent = v; };
+  const num = (v, dec = 0) => (typeof v === 'number' ? v.toFixed(dec) : '--');
+
+  const q = calidadEnlace(l);
+  pill('loraCalidad', l ? q.txt : '--', l ? q.tono : 'off');
+  txt('loraMargen', q.margen == null ? '--' : `${q.margen.toFixed(0)} dB`);
+  txt('loraRssiSub', ok ? num(l.rssi_subida) : '--'); barraRssi('barRssiSub', ok ? l.rssi_subida : null);
+  txt('loraRssiBaj', ok ? num(l.rssi_bajada) : '--'); barraRssi('barRssiBaj', ok ? l.rssi_bajada : null);
+  txt('loraSnrSub', ok ? num(l.snr_subida, 1) : '--');
+  txt('loraSnrBaj', ok ? num(l.snr_bajada, 1) : '--');
+  txt('loraRtt', ok ? num(l.rtt_ms) : '--');
+  txt('loraPerdida', l && l.pasarela_ok ? num(l.perdida_pct, 1) : '--');
+  txt('loraToa', l && l.pasarela_ok ? `${l.toa_cmd_ms}+${l.toa_tel_ms}` : '--');
+
+  const estadoPill = (id, cond, si, no, tonoNo = 'bad') => pill(id, !l ? '--' : cond ? si : no, !l ? 'off' : cond ? 'ok' : tonoNo);
+  estadoPill('stPasarela', l?.pasarela_ok, 'RESPONDE', 'NO RESPONDE');
+  estadoPill('stEnlace', ok, 'OK', 'CAÍDO');
+  estadoPill('stEsp32', ok && l.esp32_ok, 'OK', 'SIN DATOS');
+  if (ok && !l.rele) pill('stDriver', 'SIN CORRIENTE', 'off');
+  else estadoPill('stDriver', ok && l.driver_ok, 'OK', ok ? 'NO RESPONDE' : 'SIN DATOS', ok ? 'warn' : 'bad');
+  if (l && l.failsafe) pill('stFailsafe', 'ACTIVO', 'bad');
+  else pill('stFailsafe', l ? 'INACTIVO' : '--', 'off');
+  txt('stEdad', l && l.pasarela_ok && l.edad_s < 65535 ? `hace ${l.edad_s} s` : '--');
+  txt('stUptime', ok ? `${l.uptime_remoto_min} min` : '--');
+
+  const sf = l?.sf;
+  txt('prFrec', l?.frecuencia_mhz ? `${l.frecuencia_mhz.toFixed(1)} MHz` : '--');
+  txt('prBw', l?.bw_khz ? `${l.bw_khz} kHz` : '--');
+  txt('prSf', sf ? `SF${sf}` : '--');
+  txt('prPot', l?.potencia_dbm ? `${l.potencia_dbm} dBm` : '--');
+  txt('prSens', SENSIBILIDAD[sf] ? `${SENSIBILIDAD[sf]} dBm` : '--');
+  txt('prSnrMin', SNR_MIN[sf] ? `${SNR_MIN[sf]} dB` : '--');
+  txt('prFerr', ok ? `${l.error_frec_hz} Hz` : '--');
+  txt('prTramas', l?.pasarela_ok ? `${l.enviados} / ${l.recibidos}` : '--');
+
+  txt('navLora', ok ? `LoRa ${l.rssi_subida} dBm` : 'ENLACE LoRa');
+  dibujarGraficasLora(sf);
+}
+
+function dibujarGrafica(canvas, series, min, max, ref) {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h) return;   // vista oculta: se dibuja al mostrarla
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const css = getComputedStyle(document.body);
+  const color = (v) => css.getPropertyValue(v).trim();
+  const izq = 40, der = 8, arr = 6, aba = 16, ahora = Date.now();
+  const x = (t) => izq + (w - izq - der) * (1 - (ahora - t) / LORA_GRAFICA_MS);
+  const y = (v) => arr + (h - arr - aba) * (1 - (Math.max(min, Math.min(max, v)) - min) / (max - min));
+
+  ctx.font = '10px "Roboto Mono", monospace';
+  ctx.fillStyle = color('--text-muted');
+  ctx.strokeStyle = color('--border-tech');
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const v = min + ((max - min) * i) / 4, yy = Math.round(y(v)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(izq, yy); ctx.lineTo(w - der, yy); ctx.stroke();
+    ctx.fillText(String(Math.round(v)), 2, yy + 3);
+  }
+  ctx.fillText('-5 min', izq, h - 3);
+  ctx.textAlign = 'right'; ctx.fillText('ahora', w - der, h - 3); ctx.textAlign = 'left';
+
+  if (ref != null) {
+    ctx.strokeStyle = color('--neon-red');
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(izq, y(ref)); ctx.lineTo(w - der, y(ref)); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  for (const s of series) {
+    ctx.strokeStyle = color(s.color);
+    ctx.beginPath();
+    let trazo = false;
+    for (const p of loraHist) {
+      if (ahora - p.t > LORA_GRAFICA_MS) continue;
+      const v = p[s.clave];
+      if (v == null) { trazo = false; continue; }   // hueco: enlace caído
+      if (trazo) ctx.lineTo(x(p.t), y(v)); else ctx.moveTo(x(p.t), y(v));
+      trazo = true;
+    }
+    ctx.stroke();
+  }
+}
+
+function dibujarGraficasLora(sf) {
+  if (!$('view-lora').classList.contains('view-active')) return;
+  dibujarGrafica($('chartRssi'), [{ clave: 'rssiSub', color: '--lora-sub' }, { clave: 'rssiBaj', color: '--lora-baj' }], -140, -20, SENSIBILIDAD[sf]);
+  dibujarGrafica($('chartSnr'), [{ clave: 'snrSub', color: '--lora-sub' }, { clave: 'snrBaj', color: '--lora-baj' }], -25, 15, SNR_MIN[sf]);
+}
+
+function enviarLora() {
+  const sf = Number($('loraSf').value), potencia = Number($('loraPot').value);
+  if (!Number.isInteger(sf) || sf < 7 || sf > 12) return aviso('LoRa: el SF debe ser un entero entre 7 y 12.');
+  if (!Number.isInteger(potencia) || potencia < 2 || potencia > 20) return aviso('LoRa: la potencia debe ser un entero entre 2 y 20 dBm.');
+  if (cmd('lora', { sf, potencia }, `LoRa -> SF${sf}, ${potencia} dBm`)) esperarConfirmacion('config');
+}
+
+function exportarCsvLora() {
+  if (!loraHist.length) return aviso('LoRa: todavía no hay mediciones para descargar.');
+  const celda = (v) => {
+    if (v == null) return '';
+    let s = String(v);
+    if (/^[=+\-@]/.test(s) && typeof v === 'string') s = `'${s}`;   // que Excel no lo tome como fórmula
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const cab = 'fecha,etiqueta,enlace_ok,sf,potencia_dbm,rssi_subida_dbm,snr_subida_db,rssi_bajada_dbm,snr_bajada_db,rtt_ms,perdida_pct,enviados,recibidos';
+  const filas = loraHist.map((p) => [new Date(p.t).toISOString(), p.etiqueta, p.ok ? 1 : 0, p.sf, p.potencia, p.rssiSub, p.snrSub,
+    p.rssiBaj, p.snrBaj, p.rtt, p.perdida, p.enviados, p.recibidos].map(celda).join(','));
+  descargar(`lora_${Date.now()}.csv`, [cab, ...filas].join('\n') + '\n', 'text/csv');
+}
+
+function renderTodo() { renderBadges(); renderValores(); aplicarControles(); renderLora(); }
 
 /* ---------- mensajes del broker ---------- */
 const ETIQUETAS = {
@@ -296,6 +472,7 @@ function onMensaje(topic, payload) {
   else if (sub === 'config') { config = datos; renderConfig(); confirmar('config'); }
   else if (sub === 'horarios') { horarios = Array.isArray(datos) ? datos : []; renderHorarios(); confirmar('horarios'); }
   else if (sub === 'historial') renderHistorial(Array.isArray(datos) ? datos : []);
+  else if (sub === 'lora') onLora(datos);
 }
 
 /* ---------- conexión ---------- */
@@ -354,7 +531,7 @@ function conectarMQTT() {
       logControl('> RECONECTADO AL BROKER', '#00ff9d');
     }
     brokerUp = true;
-    c.subscribe(['estado', 'config', 'horarios', 'historial', 'disponibilidad'].map((s) => `${T}/${s}`), { qos: 1 });
+    c.subscribe(['estado', 'config', 'horarios', 'historial', 'disponibilidad', 'lora'].map((s) => `${T}/${s}`), { qos: 1 });
     renderTodo();
   });
   c.on('close', () => {
@@ -376,17 +553,21 @@ function conectarMQTT() {
 
 function desconectarMQTT() {
   if (client) { client.end(true); client = null; }
-  brokerUp = false; everConnected = false; piOnline = null; estado = null; prevEstado = null;
+  brokerUp = false; everConnected = false; piOnline = null; estado = null; prevEstado = null; lora = null; prevLora = null;
   renderTodo();
 }
 
 /* ---------- exportar ---------- */
+function descargar(nombre, texto, tipo) {
+  const a = el('a', { href: URL.createObjectURL(new Blob([texto], { type: tipo })), download: nombre });
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
 function exportarRegistro() {
   const texto = (id) => [...$(id).querySelectorAll('.log-row')].map((r) => r.innerText.replace(/\s*\n\s*/g, ' | ')).join('\n');
   const cuerpo = `REGISTRO DE HYDROCONTROL - ${new Date().toLocaleString()}\n${'='.repeat(40)}\n\n` +
     `--- SISTEMA ---\n${texto('logControl')}\n\n--- MONITOREO ---\n${texto('colStates')}\n\n--- HISTORIAL (PI) ---\n${texto('colHist')}\n`;
-  const a = el('a', { href: URL.createObjectURL(new Blob([cuerpo], { type: 'text/plain' })), download: `hydrocontrol_${Date.now()}.txt` });
-  document.body.appendChild(a); a.click(); a.remove();
+  descargar(`hydrocontrol_${Date.now()}.txt`, cuerpo, 'text/plain');
 }
 
 /* ---------- inicio ---------- */
@@ -456,9 +637,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('btnSaveCal').addEventListener('click', enviarCalibracion);
   $('btnInject').addEventListener('click', inyeccionManual);
   $('btnExport').addEventListener('click', exportarRegistro);
+  $('btnLoraAplicar').addEventListener('click', enviarLora);
+  $('btnLoraCsv').addEventListener('click', exportarCsvLora);
+  window.addEventListener('resize', () => dibujarGraficasLora(lora?.sf));
   $('btnClearLog').addEventListener('click', () => { $('logControl').replaceChildren(); });
 
-  $('cfgDarkMode').addEventListener('change', (ev) => aplicarTema(ev.target.checked));
+  $('cfgDarkMode').addEventListener('change', (ev) => { aplicarTema(ev.target.checked); dibujarGraficasLora(lora?.sf); });
   $('cfgZoom').addEventListener('input', (ev) => aplicarZoom(Number(ev.target.value)));
   $('cfgReadOnly').addEventListener('change', (ev) => { locked = ev.target.checked; aplicarControles(); });
   $('btnForget').addEventListener('click', () => {

@@ -82,6 +82,9 @@
                 <span class="brand-title">HYDRO<span style="color:var(--neon-green)">CONTROL</span> <span class="navbar-subtitle" style="font-size:0.8rem; opacity:0.8; font-family:'Roboto Mono'; color:white;">| CONTROL</span></span>
             </div>
             <div class="d-flex align-items-center gap-3">
+                <button id="btnNavLora" class="btn btn-light btn-sm fw-bold" data-view="view-lora" hidden>
+                    <i class="bi bi-broadcast"></i> <span id="navLora">ENLACE LoRa</span>
+                </button>
                 <button class="btn btn-info btn-sm text-dark fw-bold" data-view="view-level">
                     <i class="bi bi-moisture"></i> VER NIVEL
                 </button>
@@ -279,6 +282,127 @@
                             <div class="card-header" style="color:var(--neon-gold);">Calibración y umbrales</div>
                             <div class="card-body sensor-unit" id="lvlConfig">--</div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============ ENLACE LoRa ============ -->
+<div id="view-lora" class="view-section">
+    <nav class="navbar-custom sticky-top" style="border-bottom-color: var(--neon-purple);">
+        <div class="container-fluid px-5 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <i class="bi bi-broadcast-pin" style="font-size:1.8rem; color:white;"></i>
+                <span class="brand-title">HYDRO<span style="color:var(--neon-gold)">LINK</span> <span class="navbar-subtitle" style="font-size:0.8rem; opacity:0.8; font-family:'Roboto Mono'; color:white;">| ENLACE LoRa</span></span>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-outline-light btn-sm fw-bold" data-view="view-main"><i class="bi bi-sliders"></i> VOLVER A CONTROL</button>
+                <span class="badge-sys badge bg-dark border border-secondary text-secondary p-2 px-3 rounded-0" style="font-family:'Orbitron'">SIN CONEXIÓN AL BROKER</span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-wrapper container-fluid px-5 pt-2">
+        <div id="loraCable" class="hint-box mb-3" hidden><i class="bi bi-info-circle"></i> La Pi está usando el enlace por <b>cable RS485</b>. Para usar LoRa, en la Pi pon <b>"enlace": "lora"</b> en <b>config.json</b> y reinicia el servicio.</div>
+        <div class="row g-4">
+            <!-- Columna 1: medidas y gráficas -->
+            <div class="col-lg-8">
+                <div class="row g-3">
+                    <div class="col-6 col-md-3"><div class="card border-glow-purple mb-0 h-100"><div class="card-body lora-tile">
+                        <div class="input-label">Calidad</div>
+                        <span id="loraCalidad" class="status-pill tone-off">--</span>
+                        <div class="lora-unit mt-2">Margen: <b id="loraMargen">--</b></div>
+                    </div></div></div>
+                    <div class="col-6 col-md-3"><div class="card border-glow-purple mb-0 h-100"><div class="card-body lora-tile">
+                        <div class="input-label">RSSI subida</div>
+                        <div class="lora-val" id="loraRssiSub">--</div><div class="lora-unit">dBm · remoto → Pi</div>
+                        <div class="lora-bar"><div id="barRssiSub"></div></div>
+                    </div></div></div>
+                    <div class="col-6 col-md-3"><div class="card border-glow-cyan mb-0 h-100"><div class="card-body lora-tile">
+                        <div class="input-label">RSSI bajada</div>
+                        <div class="lora-val" id="loraRssiBaj">--</div><div class="lora-unit">dBm · Pi → remoto</div>
+                        <div class="lora-bar"><div id="barRssiBaj"></div></div>
+                    </div></div></div>
+                    <div class="col-6 col-md-3"><div class="card border-glow-blue mb-0 h-100"><div class="card-body lora-tile">
+                        <div class="input-label">Latencia (RTT)</div>
+                        <div class="lora-val" id="loraRtt">--</div><div class="lora-unit">ms · ida y vuelta</div>
+                    </div></div></div>
+                    <div class="col-6 col-md-3"><div class="card border-glow-red mb-0 h-100"><div class="card-body lora-tile">
+                        <div class="input-label">Pérdida</div>
+                        <div class="lora-val" id="loraPerdida">--</div><div class="lora-unit">% · últimas 50 tramas</div>
+                    </div></div></div>
+                    <div class="col-6 col-md-3"><div class="card border-glow-purple mb-0 h-100"><div class="card-body lora-tile">
+                        <div class="input-label">SNR subida</div>
+                        <div class="lora-val" id="loraSnrSub">--</div><div class="lora-unit">dB</div>
+                    </div></div></div>
+                    <div class="col-6 col-md-3"><div class="card border-glow-cyan mb-0 h-100"><div class="card-body lora-tile">
+                        <div class="input-label">SNR bajada</div>
+                        <div class="lora-val" id="loraSnrBaj">--</div><div class="lora-unit">dB</div>
+                    </div></div></div>
+                    <div class="col-6 col-md-3"><div class="card border-glow-gold mb-0 h-100"><div class="card-body lora-tile">
+                        <div class="input-label">Tiempo en el aire</div>
+                        <div class="lora-val" id="loraToa">--</div><div class="lora-unit">ms · orden + respuesta</div>
+                    </div></div></div>
+                </div>
+
+                <div class="card border-glow-purple mt-3 mb-0">
+                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span style="color:var(--neon-purple);"><i class="bi bi-graph-up"></i> Señal · últimos 5 minutos</span>
+                        <span class="lora-legend"><i class="sub"></i>subida <i class="baj"></i>bajada <i class="ref"></i>límite del SF</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="input-label">RSSI (dBm)</div>
+                        <canvas id="chartRssi" class="lora-chart" aria-label="Gráfica de RSSI de los últimos 5 minutos" role="img"></canvas>
+                        <div class="input-label mt-3">SNR (dB)</div>
+                        <canvas id="chartSnr" class="lora-chart" aria-label="Gráfica de SNR de los últimos 5 minutos" role="img"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna 2: estado, parámetros y experimentos -->
+            <div class="col-lg-4">
+                <div class="card border-glow-green">
+                    <div class="card-header" style="color:var(--neon-green);"><i class="bi bi-diagram-3"></i> Estado de la red</div>
+                    <div class="card-body lora-rows">
+                        <div><span>Pasarela (Modbus ID 10)</span><span id="stPasarela" class="status-pill tone-off">--</span></div>
+                        <div><span>Enlace de radio</span><span id="stEnlace" class="status-pill tone-off">--</span></div>
+                        <div><span>Sensor y válvula (ESP32-C3)</span><span id="stEsp32" class="status-pill tone-off">--</span></div>
+                        <div><span>Driver de la bomba</span><span id="stDriver" class="status-pill tone-off">--</span></div>
+                        <div><span>Failsafe del remoto</span><span id="stFailsafe" class="status-pill tone-off">--</span></div>
+                        <div><span>Última respuesta</span><b id="stEdad">--</b></div>
+                        <div><span>Remoto encendido hace</span><b id="stUptime">--</b></div>
+                    </div>
+                </div>
+
+                <div class="card border-glow-blue">
+                    <div class="card-header" style="color:var(--neon-blue);"><i class="bi bi-broadcast"></i> Parámetros de radio</div>
+                    <div class="card-body lora-rows">
+                        <div><span>Frecuencia</span><b id="prFrec">--</b></div>
+                        <div><span>Ancho de banda</span><b id="prBw">--</b></div>
+                        <div><span>Spreading factor</span><b id="prSf">--</b></div>
+                        <div><span>Tasa de codificación</span><b>4/5</b></div>
+                        <div><span>Potencia de transmisión</span><b id="prPot">--</b></div>
+                        <div><span>Sensibilidad con este SF</span><b id="prSens">--</b></div>
+                        <div><span>SNR mínimo con este SF</span><b id="prSnrMin">--</b></div>
+                        <div><span>Error de frecuencia</span><b id="prFerr">--</b></div>
+                        <div><span>Tramas enviadas / recibidas</span><b id="prTramas">--</b></div>
+                    </div>
+                </div>
+
+                <div class="card border-glow-gold mb-0">
+                    <div class="card-header" style="color:var(--neon-gold);"><i class="bi bi-clipboard-data"></i> Experimentos</div>
+                    <div class="card-body">
+                        <div class="row g-2 mb-2">
+                            <div class="col-6"><label class="input-label" for="loraSf">Spreading factor</label><input type="number" id="loraSf" class="form-control ctrl" min="7" max="12" step="1"></div>
+                            <div class="col-6"><label class="input-label" for="loraPot">Potencia (dBm)</label><input type="number" id="loraPot" class="form-control ctrl" min="2" max="20" step="1"></div>
+                        </div>
+                        <button id="btnLoraAplicar" class="btn btn-warning btn-sm w-100 mb-2 ctrl">APLICAR AL ENLACE</button>
+                        <div class="hint-box mb-3">Un SF más alto da más alcance, pero cada trama tarda más en el aire. Si el cambio falla, los dos nodos vuelven solos a SF7 en unos 20 s.</div>
+                        <label class="input-label" for="loraEtiqueta">Etiqueta de las mediciones</label>
+                        <input type="text" id="loraEtiqueta" class="form-control mb-2" placeholder="ej.: 50 m, detrás de una pared" maxlength="40" autocomplete="off">
+                        <button id="btnLoraCsv" class="btn btn-success btn-sm w-100"><i class="bi bi-filetype-csv"></i> DESCARGAR MEDICIONES (CSV)</button>
                     </div>
                 </div>
             </div>

@@ -122,6 +122,25 @@ textarea.json-editor { background-color: transparent; color: var(--text-main); b
 .dia-chip input:checked + span { background: var(--neon-gold); border-color: var(--neon-gold); color: white; }
 .dia-chip input:disabled { cursor: not-allowed; }
 
+/* --- ENLACE LoRa --- */
+:root { --lora-sub: var(--neon-purple); --lora-baj: var(--neon-cyan); }
+.lora-tile { text-align: center; padding: 12px 8px; }
+.lora-val { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.8rem; line-height: 1.15; margin-top: 4px; }
+.lora-unit { font-size: 0.68rem; color: var(--text-muted); }
+.lora-bar { height: 6px; background: var(--gauge-bg); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+.lora-bar > div { height: 100%; width: 0; transition: width 0.4s, background-color 0.4s; }
+.lora-rows { font-size: 0.78rem; padding-top: 6px; padding-bottom: 6px; }
+.lora-rows > div { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--border-tech); }
+.lora-rows > div:last-child { border-bottom: none; }
+.lora-rows > div > span:first-child { color: var(--text-muted); }
+.lora-rows .status-pill { min-width: 0; padding: 3px 10px; font-size: 0.6rem; }
+.lora-chart { width: 100%; height: 170px; display: block; }
+.lora-legend { font-family: 'Roboto Mono', monospace; font-size: 0.7rem; font-weight: normal; letter-spacing: 0; color: var(--text-muted); }
+.lora-legend i { display: inline-block; width: 14px; height: 3px; margin: 0 4px 0 10px; vertical-align: middle; }
+.lora-legend i.sub { background: var(--lora-sub); }
+.lora-legend i.baj { background: var(--lora-baj); }
+.lora-legend i.ref { border-top: 2px dashed var(--neon-red); height: 0; }
+
 /* --- MODO OSCURO --- */
 body.theme-dark .login-box { background: var(--card-bg); border-color: var(--neon-blue); }
 body.theme-dark .form-control { border-color: #475569; color: #00ff9d; }
@@ -129,6 +148,7 @@ body.theme-dark .card-header { background-color: rgba(0,0,0,0.3); border-bottom-
 body.theme-dark .speed-circle { box-shadow: 0 0 15px rgba(56, 189, 248, 0.2); }
 body.theme-dark .alert-box { color: #fde68a; }
 body.theme-dark .set-title { border-bottom-color: #334155; }
+body.theme-dark { --lora-sub: #a78bfa; }   /* el morado base apenas se lee sobre el fondo oscuro */
 
 /* --- CELULAR --- */
 @media (max-width: 576px) {

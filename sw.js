@@ -1,7 +1,7 @@
 // Service worker de HydroControl: solo cachea el cascarón de la app (HTML/JS/CSS/iconos propios)
 // para que abra al instante y se pueda instalar. La conexión MQTT en sí siempre necesita internet;
 // esto no la reemplaza, solo evita una pantalla en blanco al abrir sin señal.
-const CACHE = 'hydrocontrol-shell-v1';
+const CACHE = 'hydrocontrol-shell-v2';
 const ARCHIVOS = ['./', './index.html', './app.js', './style.css', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png'];
 
